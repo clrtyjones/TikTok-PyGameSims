@@ -1,6 +1,8 @@
 import pygame
 import sys
 import math
+import random
+import os
 
 # Initialize Pygame
 pygame.init()
@@ -8,7 +10,7 @@ pygame.init()
 # Screen dimensions
 width, height = 607, 1080
 screen = pygame.display.set_mode((width, height))
-pygame.display.set_caption("Ball Collision Simulation")
+pygame.display.set_caption("3 Second Ball Simulation")
 
 # Colors
 white = (255, 255, 255)
@@ -16,16 +18,24 @@ black = (0, 0, 0)
 
 # Ball properties
 ball_radius = 20
-ball1 = {'x': 253.5, 'y': 500, 'vx': 5, 'vy': 2, 'color': white}
-ball2 = {'x': 353.5, 'y': 500, 'vx': -5, 'vy': -2, 'color': white}
+ball1 = {'x': 253.5, 'y': 500, 'vx': -4, 'vy': -15, 'color': white}
+ball2 = {'x': 353.5, 'y': 500, 'vx': 4, 'vy': -15, 'color': white}
 
 # Circle properties
 circle_center = (width // 2, height // 2)
-circle_radius = 200
+circle_radius = 275
+circle_thickness = 2
+visible_inner_radius = circle_radius - circle_thickness
 
 # Gravity properties
 gravity = 0.5  # Acceleration due to gravity
 restitution = 1.0  # Bounciness factor
+
+# Load sound
+current_dir = os.path.dirname(os.path.abspath(__file__))
+audio_file = "metallic-impact.wav"
+audio_path = os.path.join(current_dir, audio_file)
+collision_sound = pygame.mixer.Sound(audio_path)
 
 # Time properties
 clock = pygame.time.Clock()
@@ -35,9 +45,16 @@ def distance(ball1, ball2):
     return math.hypot(ball1['x'] - ball2['x'], ball1['y'] - ball2['y'])
 
 def handle_collision(ball1, ball2):
+    global circle_thickness, visible_inner_radius
     # Calculate the distance between the balls
     dist = distance(ball1, ball2)
     if dist < 2 * ball_radius:
+
+        circle_thickness += 1
+        visible_inner_radius = circle_radius - circle_thickness
+
+        collision_sound.play()
+        
         # Calculate the normal and tangent vectors
         nx = (ball2['x'] - ball1['x']) / dist
         ny = (ball2['y'] - ball1['y']) / dist
@@ -63,10 +80,21 @@ def handle_collision(ball1, ball2):
         ball2['x'] += overlap / 2 * nx
         ball2['y'] += overlap / 2 * ny
 
+        # Change Color Of Ball For Every Collision
+        ball1['color'] = (random.randint(0, 255), random.randint(0, 255), random.randint(0, 255))
+        ball2['color'] = (random.randint(0, 255), random.randint(0, 255), random.randint(0, 255))
+
 def handle_boundary_collision(ball):
+    global circle_thickness, visible_inner_radius
     # Calculate the distance from the ball to the circle center
     dist = math.hypot(ball['x'] - circle_center[0], ball['y'] - circle_center[1])
-    if dist + ball_radius > circle_radius:
+    if dist + ball_radius > visible_inner_radius:
+
+        circle_thickness += 1
+        visible_inner_radius = circle_radius - circle_thickness
+
+        collision_sound.play()
+
         # Normal vector at the point of collision
         nx = (ball['x'] - circle_center[0]) / dist
         ny = (ball['y'] - circle_center[1]) / dist
@@ -81,9 +109,12 @@ def handle_boundary_collision(ball):
         ball['vy'] *= restitution
 
         # Reposition the ball to avoid sticking
-        overlap = dist + ball_radius - circle_radius
+        overlap = dist + ball_radius - visible_inner_radius
         ball['x'] -= overlap * nx
         ball['y'] -= overlap * ny
+
+        # Change Color Of Ball For Every Collision
+        ball['color'] = (random.randint(0, 255), random.randint(0, 255), random.randint(0, 255))
 
 # Main game loop
 running = True
@@ -117,7 +148,7 @@ while running:
     screen.fill(black)
 
     # Draw the large circle in the middle
-    pygame.draw.circle(screen, white, circle_center, circle_radius, 2)
+    pygame.draw.circle(screen, white, circle_center, circle_radius, circle_thickness)
 
     # Draw the balls
     pygame.draw.circle(screen, ball1['color'], (int(ball1['x']), int(ball1['y'])), ball_radius)
