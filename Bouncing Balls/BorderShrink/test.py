@@ -4,6 +4,15 @@ import math
 import random
 import os
 
+# Ball Class
+class Ball:
+    def __init__(self, x, y, vx, vy, color):
+        self.x = x
+        self.y = y
+        self.vx = vx
+        self.vy = vy
+        self.color = color
+
 # Initialize Pygame
 pygame.init()
 
@@ -18,8 +27,9 @@ black = (0, 0, 0)
 
 # Ball properties
 ball_radius = 10
-ball1 = {'x': 253.5, 'y': 500, 'vx': -4, 'vy': -15, 'color': white}
-ball2 = {'x': 353.5, 'y': 500, 'vx': 4, 'vy': -15, 'color': white}
+ball1 = Ball(253.5, 500, -4, -15, white)
+ball2 = Ball(353.5, 500, 4, -15, white)
+balls = [ball1, ball2]  # Store all balls in a list
 
 # Circle properties
 circle_center = (width // 2, height // 2)
@@ -116,6 +126,24 @@ def handle_boundary_collision(ball):
         # Change Color Of Ball For Every Collision
         ball['color'] = (random.randint(0, 255), random.randint(0, 255), random.randint(0, 255))
 
+
+def spawn_new_ball():
+    # Generate random coordinates within the circle
+    angle = random.uniform(0, math.pi * 2)
+    spawn_radius = random.uniform(0, visible_inner_radius - ball_radius)
+    spawn_x = circle_center[0] + math.cos(angle) * spawn_radius
+    spawn_y = circle_center[1] + math.sin(angle) * spawn_radius
+
+    # Generate random velocities
+    vx = random.uniform(-5, 5)
+    vy = random.uniform(-20, -5)  # Ensure the ball moves upwards initially
+
+    # Random color
+    color = (random.randint(0, 255), random.randint(0, 255), random.randint(0, 255))
+
+    return Ball(spawn_x, spawn_y, vx, vy, color)
+
+
 # Main game loop
 running = True
 paused = True  # Start the simulation paused
@@ -127,22 +155,28 @@ while running:
             paused = False
 
     if not paused:
-        # Apply gravity to the balls' velocities
-        ball1['vy'] += gravity
-        ball2['vy'] += gravity
+        for ball in balls:
+            # Apply gravity
+            ball.vy += gravity
 
-        # Update the balls' positions
-        ball1['x'] += ball1['vx']
-        ball1['y'] += ball1['vy']
-        ball2['x'] += ball2['vx']
-        ball2['y'] += ball2['vy']
+            # Update position
+            ball.x += ball.vx
+            ball.y += ball.vy
 
-        # Handle collision between the balls
-        handle_collision(ball1, ball2)
+            # Handle collision with other balls
+            for other_ball in balls:
+                if ball != other_ball:
+                    handle_collision(ball, other_ball)
 
-        # Handle collision with the circle boundary
-        handle_boundary_collision(ball1)
-        handle_boundary_collision(ball2)
+            # Handle collision with outer circle
+            handle_boundary_collision(ball)
+        
+        # Check for collision with outer circle and spawn new balls
+        if len(balls) < 3:  # Limiting to 3 balls for demonstration
+            for ball in balls.copy():
+                dist = math.hypot(ball.x - circle_center[0], ball.y - circle_center[1])
+                if dist + ball_radius > visible_inner_radius:
+                    balls.append(spawn_new_ball())
 
     # Fill the screen with black
     screen.fill(black)
@@ -151,8 +185,9 @@ while running:
     pygame.draw.circle(screen, white, circle_center, circle_radius, circle_thickness)
 
     # Draw the balls
-    pygame.draw.circle(screen, ball1['color'], (int(ball1['x']), int(ball1['y'])), ball_radius)
-    pygame.draw.circle(screen, ball2['color'], (int(ball2['x']), int(ball2['y'])), ball_radius)
+    for ball in balls:
+        pygame.draw.circle(screen, ball.color, (int(ball.x), int(ball.y)), ball_radius)
+
 
     # Update the display
     pygame.display.flip()
