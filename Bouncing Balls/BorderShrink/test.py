@@ -28,9 +28,9 @@ black = (0, 0, 0)
 
 # Ball properties
 ball_radius = 5
-ball1 = Ball(253.5, 500, -10, -15, white)
-ball2 = Ball(353.5, 500, 10, -15, white)
-balls = [ball1, ball2]  # Store all balls in a list
+ball1 = Ball(303.5, 500, -10, -15, white)
+#ball2 = Ball(353.5, 500, 10, -15, white)
+balls = [ball1]  # Store all balls in a list
 
 # Circle properties
 circle_center = (width // 2, height // 2)
@@ -52,54 +52,56 @@ collision_sound = pygame.mixer.Sound(audio_path)
 clock = pygame.time.Clock()
 fps = 60
 
-def distance(ball1, ball2):
-    return math.hypot(ball1.x - ball2.x, ball1.y - ball2.y)
+# def distance(ball1, ball2):
+#     return math.hypot(ball1.x - ball2.x, ball1.y - ball2.y)
 
-def handle_collision(ball1, ball2):
-    global circle_thickness, visible_inner_radius
-    # Calculate the distance between the balls
-    dist = distance(ball1, ball2)
-    if dist < 2 * ball_radius:
-        visible_inner_radius = circle_radius - circle_thickness
-        collision_sound.play()
+# def handle_collision(ball1, ball2):
+#     global circle_thickness, visible_inner_radius
+#     # Calculate the distance between the balls
+#     dist = distance(ball1, ball2)
+#     if dist < 2 * ball_radius:
+#         visible_inner_radius = circle_radius - circle_thickness
+#         collision_sound.play()
 
-        # Calculate the normal and tangent vectors
-        nx = (ball2.x - ball1.x) / dist
-        ny = (ball2.y - ball1.y) / dist
-        tx = -ny
-        ty = nx
+#         # Calculate the normal and tangent vectors
+#         nx = (ball2.x - ball1.x) / dist
+#         ny = (ball2.y - ball1.y) / dist
+#         tx = -ny
+#         ty = nx
 
-        # Dot products of velocities with the normal and tangent vectors
-        v1n = nx * ball1.vx + ny * ball1.vy
-        v1t = tx * ball1.vx + ty * ball1.vy
-        v2n = nx * ball2.vx + ny * ball2.vy
-        v2t = tx * ball2.vx + ty * ball2.vy
+#         # Dot products of velocities with the normal and tangent vectors
+#         v1n = nx * ball1.vx + ny * ball1.vy
+#         v1t = tx * ball1.vx + ty * ball1.vy
+#         v2n = nx * ball2.vx + ny * ball2.vy
+#         v2t = tx * ball2.vx + ty * ball2.vy
 
-        # Swap the normal components of the velocities (elastic collision)
-        ball1.vx = v2n * nx + v1t * tx
-        ball1.vy = v2n * ny + v1t * ty
-        ball2.vx = v1n * nx + v2t * tx
-        ball2.vy = v1n * ny + v2t * ty
+#         # Swap the normal components of the velocities (elastic collision)
+#         ball1.vx = v2n * nx + v1t * tx
+#         ball1.vy = v2n * ny + v1t * ty
+#         ball2.vx = v1n * nx + v2t * tx
+#         ball2.vy = v1n * ny + v2t * ty
 
-        # Separate the balls to prevent sticking
-        overlap = 2 * ball_radius - dist
-        ball1.x -= overlap / 2 * nx
-        ball1.y -= overlap / 2 * ny
-        ball2.x += overlap / 2 * nx
-        ball2.y += overlap / 2 * ny
+#         # Separate the balls to prevent sticking
+#         overlap = 2 * ball_radius - dist
+#         ball1.x -= overlap / 2 * nx
+#         ball1.y -= overlap / 2 * ny
+#         ball2.x += overlap / 2 * nx
+#         ball2.y += overlap / 2 * ny
 
-        # Change Color Of Ball For Every Collision
-        ball1.color = (random.randint(0, 255), random.randint(0, 255), random.randint(0, 255))
-        ball2.color = (random.randint(0, 255), random.randint(0, 255), random.randint(0, 255))
+#         # Change Color Of Ball For Every Collision
+#         ball1.color = (random.randint(0, 255), random.randint(0, 255), random.randint(0, 255))
+#         ball2.color = (random.randint(0, 255), random.randint(0, 255), random.randint(0, 255))
 
 def handle_boundary_collision(ball):
-    global circle_thickness, visible_inner_radius
+    global circle_thickness, visible_inner_radius, ball_radius
     # Calculate the distance from the ball to the circle center
     dist = math.hypot(ball.x - circle_center[0], ball.y - circle_center[1])
     if dist + ball_radius > visible_inner_radius:
         circle_thickness += 1
         visible_inner_radius = circle_radius - circle_thickness
         collision_sound.play()
+
+        ball_radius += 1
 
         # Normal vector at the point of collision
         nx = (ball.x - circle_center[0]) / dist
@@ -164,15 +166,15 @@ while running:
             ball.y += ball.vy
 
             # Handle collision with other balls
-            for other_ball in balls:
-                if ball != other_ball:
-                    handle_collision(ball, other_ball)
+            # for other_ball in balls:
+            #     if ball != other_ball:
+            #         handle_collision(ball, other_ball)
 
             # Handle collision with outer circle
             handle_boundary_collision(ball)
         
         # Check for collision with outer circle and spawn new balls
-        if len(balls) % 2 == 1:
+        if len(balls) > 2:
             for ball in balls.copy():
                 dist = math.hypot(ball.x - circle_center[0], ball.y - circle_center[1])
                 if dist + ball_radius > visible_inner_radius:
@@ -181,17 +183,23 @@ while running:
     # Fill the screen with black
     screen.fill(black)
 
-    # Draw the large circle in the middle
-    pygame.draw.circle(screen, white, circle_center, circle_radius, circle_thickness)
-
-    # Draw the balls' trails
+    # Draw the balls' trails with outlines
     for ball in balls:
         for pos in ball.trail:
+            # Draw the outline for the trail
+            pygame.draw.circle(screen, black, (int(pos[0]), int(pos[1])), ball_radius + 2)
+            # Draw the filled trail ball
             pygame.draw.circle(screen, pos[2], (int(pos[0]), int(pos[1])), ball_radius)
 
-    # Draw the balls
+    # Draw the balls with outlines
     for ball in balls:
+        # Draw the outline
+        pygame.draw.circle(screen, black, (int(ball.x), int(ball.y)), ball_radius + 2)
+        # Draw the filled ball
         pygame.draw.circle(screen, ball.color, (int(ball.x), int(ball.y)), ball_radius)
+
+    # Draw the large circle in the middle last to keep it on top
+    pygame.draw.circle(screen, white, circle_center, circle_radius, circle_thickness)
 
     # Update the display
     pygame.display.flip()
