@@ -73,8 +73,10 @@ restitution = 1.005  # Bounciness factor
 
 # Load sound
 current_dir = os.path.dirname(os.path.abspath(__file__))
+main_dir = os.path.abspath(os.path.join(current_dir, os.pardir, os.pardir))
+audio_dir = os.path.join(main_dir, "Audios")
 audio_file = "boowomp.mp3"
-audio_path = os.path.join(current_dir, audio_file)
+audio_path = os.path.join(audio_dir, audio_file)
 original_sound = AudioSegment.from_file(audio_path)
 
 # Prepare a list of pygame sounds with different pitches
