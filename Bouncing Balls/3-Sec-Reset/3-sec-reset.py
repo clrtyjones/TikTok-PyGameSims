@@ -3,7 +3,6 @@ import sys
 import math
 import random
 import os
-import colorsys
 from pydub import AudioSegment
 from pydub.playback import play
 import io
@@ -24,8 +23,7 @@ class Ball:
         self.vy = vy
         self.color = color
         self.radius = radius
-        self.trail = []  # List to store positions, colors, and radii for the trail
-        self.hue = 300
+        self.trail = []  # List to store positions and radii for the trail
 
 # Function to change the pitch of a sound
 def change_pitch(sound, semitones):
@@ -56,19 +54,25 @@ pygame.display.set_caption("Ball Gets Bigger With Every Bounce")
 white = (255, 255, 255)
 black = (0, 0, 0)
 
-# Ball properties
-initial_radius = 20
-initial_positions = [(490, 700), (590, 700)]
-ball1 = Ball(initial_positions[0][0], initial_positions[0][1], 0, 0, white, initial_radius)
-ball2 = Ball(initial_positions[1][0], initial_positions[1][1], 0, 0, white, initial_radius)
-balls = [ball1, ball2]  # Store all balls in a list
-static_balls = []  # Store static balls in a separate list
-
 # Circle properties
 circle_center = (width // 2, height // 2)
 circle_radius = 475
 circle_thickness = 7
 visible_inner_radius = circle_radius - circle_thickness
+
+# Initial positions for the balls, symmetrical around the center
+offset = 50  # The distance from the center
+ball1_initial_x = circle_center[0] - offset
+ball2_initial_x = circle_center[0] + offset
+initial_positions = [(ball1_initial_x, 700), (ball2_initial_x, 700)]
+
+# Ball properties
+initial_radius = 20
+initial_velocities = [(-5, 0), (5, 0)]  # Example initial velocities
+ball1 = Ball(initial_positions[0][0], initial_positions[0][1], initial_velocities[0][0], initial_velocities[0][1], black, initial_radius)
+ball2 = Ball(initial_positions[1][0], initial_positions[1][1], initial_velocities[1][0], initial_velocities[1][1], black, initial_radius)
+balls = [ball1, ball2]
+static_balls = []  # Store static balls in a separate list
 
 # Gravity properties
 gravity = 0.4  # Acceleration due to gravity
@@ -91,6 +95,12 @@ current_sound_index = 0
 clock = pygame.time.Clock()
 fps = 60
 start_time = 0  # Initialize start time
+
+# Calculate the x value of the true halfway point of the circle
+halfway_x = circle_center[0]
+
+# Print the halfway x value
+print(f"The x-coordinate of the halfway point of the circle is: {halfway_x}")
 
 # Function to play collision sound on an available channel
 def play_collision_sound():
@@ -192,16 +202,11 @@ def handle_static_ball_collision(ball, static_ball):
         ball.x += overlap * nx
         ball.y += overlap * ny
 
-def hsv_to_rgb(h, s, v):
-    """Convert HSV to RGB color space."""
-    rgb = colorsys.hsv_to_rgb(h, s, v)
-    return (int(rgb[0] * 255), int(rgb[1] * 255), int(rgb[2] * 255))
-
 def update_trails():
     for ball in balls:
-        ball.trail.append((ball.x, ball.y, ball.color, ball.radius))
+        ball.trail.append((ball.x, ball.y, ball.radius))
         # Limit the length of the trail for performance and visual reasons
-        if len(ball.trail) > 25:
+        if len(ball.trail) > 500:
             ball.trail.pop(0)
 
 # Main game loop
@@ -212,22 +217,17 @@ while running:
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             running = False
-        elif event.type == pygame.KEYDOWN:  # Check for key press to unpause
-            paused = False
+        elif event.type == pygame.KEYDOWN:
+            if event.key == pygame.K_SPACE:
+                paused = not paused
 
     if not paused:
         update_trails()
-        for ball in balls:
-            # Apply gravity
-            ball.vy += gravity
 
-            # Update position
+        for ball in balls:
+            ball.vy += gravity  # Apply gravity to vertical velocity
             ball.x += ball.vx
             ball.y += ball.vy
-
-            # Update hue and color for rainbow effect
-            ball.hue = (ball.hue + 2) % 360
-            ball.color = hsv_to_rgb(ball.hue / 360, 1.0, 1.0)
 
             # Handle collision with other balls
             for other_ball in balls:
@@ -246,44 +246,42 @@ while running:
         if elapsed_time > 3000:
             new_static_balls = []
             for ball in balls:
-                new_static_balls.append(Ball(ball.x, ball.y, 0, 0, white, ball.radius))
+                new_static_balls.append(Ball(ball.x, ball.y, 0, 0, black, ball.radius))
             static_balls.extend(new_static_balls)
 
-            # Reset original balls to their initial positions with 0 velocity
+            # Reset original balls to their initial positions with initial velocities
             ball1.x, ball1.y = initial_positions[0]
-            ball1.vx, ball1.vy = 0, 0
+            ball1.vx, ball1.vy = initial_velocities[0]
             ball2.x, ball2.y = initial_positions[1]
-            ball2.vx, ball2.vy = 0, 0
+            ball2.vx, ball2.vy = initial_velocities[1]
+
+            # Clear trails
+            ball1.trail.clear()
+            ball2.trail.clear()
 
             start_time = pygame.time.get_ticks()  # Reset the timer
 
     # Fill the screen with black
     screen.fill(black)
 
-    # Draw the balls' trails with outlines
+    # Draw the balls' trails
     for ball in balls:
-        for i, pos in enumerate(ball.trail):
-            fade_power = 5.5  # Adjust the power to control the rate of fade away
-            alpha = int(255 * ((i / len(ball.trail)) ** fade_power))
-            trail_color = (*pos[2], alpha)
-            # Draw the outline for the trail
-            trail_surface = pygame.Surface((pos[3]*2+4, pos[3]*2+4), pygame.SRCALPHA)
-            pygame.draw.circle(trail_surface, (0, 0, 0, alpha), (pos[3]+2, pos[3]+2), pos[3] + 2)
-            # Draw the filled trail ball
-            pygame.draw.circle(trail_surface, trail_color, (pos[3]+2, pos[3]+2), pos[3])
-            screen.blit(trail_surface, (int(pos[0] - pos[3] - 2), int(pos[1] - pos[3] - 2)))
+        for pos in ball.trail:
+            # Draw the trail with a white outline
+            pygame.draw.circle(screen, white, (int(pos[0]), int(pos[1])), pos[2] + 2)
+            pygame.draw.circle(screen, ball.color, (int(pos[0]), int(pos[1])), pos[2])
 
     # Draw the balls with outlines
     for ball in balls:
         # Draw the outline
-        pygame.draw.circle(screen, black, (int(ball.x), int(ball.y)), ball.radius + 2)
+        pygame.draw.circle(screen, white, (int(ball.x), int(ball.y)), ball.radius + 2)
         # Draw the filled ball
         pygame.draw.circle(screen, ball.color, (int(ball.x), int(ball.y)), ball.radius)
 
-    # Draw static white balls with outlines
+    # Draw static black balls with white outlines
     for static_ball in static_balls:
-        pygame.draw.circle(screen, black, (int(static_ball.x), int(static_ball.y)), static_ball.radius + 2)
-        pygame.draw.circle(screen, static_ball.color, (int(static_ball.x), int(static_ball.y)), static_ball.radius)
+        pygame.draw.circle(screen, white, (int(static_ball.x), (int(static_ball.y))), static_ball.radius + 2)
+        pygame.draw.circle(screen, static_ball.color, (int(static_ball.x), (int(static_ball.y))), static_ball.radius)
 
     # Draw the large circle in the middle first with outline
     pygame.draw.circle(screen, white, circle_center, circle_radius, circle_thickness)
