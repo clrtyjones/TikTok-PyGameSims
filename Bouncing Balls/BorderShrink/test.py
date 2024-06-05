@@ -44,7 +44,7 @@ restitution = 1.0  # Bounciness factor
 
 # Load sound
 current_dir = os.path.dirname(os.path.abspath(__file__))
-audio_file = "pingpong.wav"
+audio_file = "kalimba.wav"
 audio_path = os.path.join(current_dir, audio_file)
 collision_sound = pygame.mixer.Sound(audio_path)
 

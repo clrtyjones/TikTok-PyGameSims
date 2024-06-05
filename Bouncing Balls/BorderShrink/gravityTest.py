@@ -4,6 +4,16 @@ import math
 import random
 import os
 import colorsys
+from pydub import AudioSegment
+from pydub.playback import play
+import io
+
+os.environ["SDL_VIDEODRIVER"] = "dummy"  # Use dummy driver to prevent SDL from loading default drivers
+os.environ["SDL_VIDEO_CENTERED"] = "1"   # Center the window
+
+# Use OpenGL for rendering
+os.environ["SDL_VIDEODRIVER"] = "windib"
+os.environ["SDL_VIDEO_X11_VISUALID"] = "0"
 
 # Ball Class
 class Ball:
@@ -17,13 +27,30 @@ class Ball:
         self.trail = []  # List to store positions, colors, and radii for the trail
         self.hue = random.randint(0, 360)  # Initialize with a random hue value
 
+# Function to change the pitch of a sound
+def change_pitch(sound, semitones):
+    return sound._spawn(sound.raw_data, overrides={
+         "frame_rate": int(sound.frame_rate * (2.0 ** (semitones / 12.0)))
+    }).set_frame_rate(sound.frame_rate)
+
+# Function to convert pydub sound to pygame sound
+def pydub_to_pygame(sound):
+    raw = sound.raw_data
+    pygame_sound = pygame.mixer.Sound(buffer=raw)
+    return pygame_sound
+
 # Initialize Pygame
 pygame.init()
 
+# Initialize mixer and allocate multiple channels
+pygame.mixer.init()
+num_channels = 75  # Adjust this based on the number of simultaneous sounds you expect
+pygame.mixer.set_num_channels(num_channels)
+
 # Screen dimensions
-width, height = 607, 1080
-screen = pygame.display.set_mode((width, height))
-pygame.display.set_caption("3 Second Ball Simulation")
+width, height = 1080, 1920
+screen = pygame.display.set_mode((width, height), pygame.HWSURFACE | pygame.DOUBLEBUF)
+pygame.display.set_caption("Ball Gets Bigger With Every Bounce")
 
 # Colors
 white = (255, 255, 255)
@@ -31,38 +58,63 @@ black = (0, 0, 0)
 
 # Ball properties
 initial_radius = 5
-ball1 = Ball(303.5, 500, 1, -12, white, initial_radius)
+ball1 = Ball(540, 700, 0.1, -8.38, white, initial_radius)
 balls = [ball1]  # Store all balls in a list
 
 # Circle properties
 circle_center = (width // 2, height // 2)
-circle_radius = 275
-circle_thickness = 2
+circle_radius = 475
+circle_thickness = 7
 visible_inner_radius = circle_radius - circle_thickness
 
 # Gravity properties
-gravity = 0.4  # Acceleration due to gravity
-restitution = 1.001  # Bounciness factor
+gravity = 0.7  # Acceleration due to gravity
+restitution = 1.005  # Bounciness factor
 
 # Load sound
 current_dir = os.path.dirname(os.path.abspath(__file__))
-audio_file = "pingpong.wav"
+audio_file = "boowomp.mp3"
 audio_path = os.path.join(current_dir, audio_file)
-collision_sound = pygame.mixer.Sound(audio_path)
+original_sound = AudioSegment.from_file(audio_path)
+
+# Prepare a list of pygame sounds with different pitches
+pitch_semitones = [0, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 20, 18, 16, 14, 12, 10, 8, 6, 4, 2]
+collision_sounds = [pydub_to_pygame(change_pitch(original_sound, semitone)) for semitone in pitch_semitones]
+current_sound_index = 0
 
 # Time properties
 clock = pygame.time.Clock()
 fps = 60
 
+# Function to play collision sound on an available channel
+def play_collision_sound():
+    for i in range(pygame.mixer.get_num_channels()):
+        if not pygame.mixer.Channel(i).get_busy():
+            return pygame.mixer.Channel(i)
+    return None
+
 def handle_boundary_collision(ball):
-    global circle_thickness, visible_inner_radius
+    global circle_thickness, visible_inner_radius, current_sound_index, gravity, restitution
     # Calculate the distance from the ball to the circle center
     dist = math.hypot(ball.x - circle_center[0], ball.y - circle_center[1])
     if dist + ball.radius > visible_inner_radius:
         visible_inner_radius = circle_radius - circle_thickness
-        collision_sound.play()
 
-        ball.radius += 2
+        channel = play_collision_sound()
+        if channel:
+            channel.play(collision_sounds[current_sound_index])
+        current_sound_index = (current_sound_index + 1) % len(collision_sounds)
+
+        if ball.radius > 80:
+            ball.radius += 2
+        else:
+            ball.radius += 1
+
+        if ball.radius > 145:
+            restitution = 1.005
+            ball.radius += 2.75
+        elif ball.radius > 45:
+            ball.radius += 2
 
         # Normal vector at the point of collision
         nx = (ball.x - circle_center[0]) / dist
@@ -107,7 +159,7 @@ def update_trails():
     for ball in balls:
         ball.trail.append((ball.x, ball.y, ball.color, ball.radius))
         # Limit the length of the trail for performance and visual reasons
-        if len(ball.trail) > 100:
+        if len(ball.trail) > 25:
             ball.trail.pop(0)
 
 # Main game loop
@@ -131,7 +183,7 @@ while running:
             ball.y += ball.vy
 
             # Update hue and color for rainbow effect
-            ball.hue = (ball.hue + 1) % 360
+            ball.hue = (ball.hue + 2) % 360
             ball.color = hsv_to_rgb(ball.hue / 360, 1.0, 1.0)
 
             # Handle collision with outer circle
