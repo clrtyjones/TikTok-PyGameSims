@@ -55,39 +55,48 @@ white = (255, 255, 255)
 black = (0, 0, 0)
 
 # Circle properties
-circle_center = (width // 2, height // 2)
+circle_center = (width / 2, height / 2)
 circle_radius = 475
 circle_thickness = 7
 visible_inner_radius = circle_radius - circle_thickness
 
-# Initial positions for the balls, symmetrical around the center
-offset = 50  # The distance from the center
-ball1_initial_x = circle_center[0] - offset
-ball2_initial_x = circle_center[0] + offset
-initial_positions = [(ball1_initial_x, 700), (ball2_initial_x, 700)]
-
-# Ball properties
-initial_radius = 20
-initial_velocities = [(-5, 0), (5, 0)]  # Example initial velocities
+# Initial positions for the balls
+initial_positions = [(480.0, 795.0), (600.0, 795.0)]
+initial_radius = 30
+initial_velocities = [(0, 0), (0, 0)]  # Example initial velocities
 ball1 = Ball(initial_positions[0][0], initial_positions[0][1], initial_velocities[0][0], initial_velocities[0][1], black, initial_radius)
 ball2 = Ball(initial_positions[1][0], initial_positions[1][1], initial_velocities[1][0], initial_velocities[1][1], black, initial_radius)
 balls = [ball1, ball2]
 static_balls = []  # Store static balls in a separate list
 
 # Gravity properties
-gravity = 0.4  # Acceleration due to gravity
+gravity = 0.5  # Acceleration due to gravity
 restitution = 1.0  # Bounciness factor
 
 # Load sound
 current_dir = os.path.dirname(os.path.abspath(__file__))
 main_dir = os.path.abspath(os.path.join(current_dir, os.pardir, os.pardir))
 audio_dir = os.path.join(main_dir, "Audios")
-audio_file = "pingpong.wav"
+audio_file = "pop.wav"
 audio_path = os.path.join(audio_dir, audio_file)
 original_sound = AudioSegment.from_file(audio_path)
 
+# # Define export parameters
+# output_format = "wav"  # Specify the desired output format, e.g., "mp3", "wav", etc.
+# output_file_path = "output_audio." + output_format
+# bitrate = "128k"  # Specify the desired bitrate, e.g., "64k", "128k", "192k", etc.
+# sample_width = 2  # Specify the desired sample width in bytes, e.g., 1 (8-bit), 2 (16-bit), etc.
+# channels = 2  # Specify the desired number of channels, e.g., 1 (mono), 2 (stereo), etc.
+# target_db = -5  # Specify the desired target decibel level
+
+# # Apply gain to adjust the volume level
+# adjusted_audio = original_sound.apply_gain(target_db)
+
+# # Export the audio with custom parameters
+# adjusted_audio.export(output_file_path, format=output_format, bitrate=bitrate, parameters=["-ac", str(channels), "-sample_fmt", f's{8*sample_width}'])
+
 # Prepare a list of pygame sounds with different pitches
-pitch_semitones = [0, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 20, 18, 16, 14, 12, 10, 8, 6, 4, 2]
+pitch_semitones = [0, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 22, 18, 16, 14, 12, 10, 8, 6, 4, 2]
 collision_sounds = [pydub_to_pygame(change_pitch(original_sound, semitone)) for semitone in pitch_semitones]
 current_sound_index = 0
 
@@ -95,12 +104,6 @@ current_sound_index = 0
 clock = pygame.time.Clock()
 fps = 60
 start_time = 0  # Initialize start time
-
-# Calculate the x value of the true halfway point of the circle
-halfway_x = circle_center[0]
-
-# Print the halfway x value
-print(f"The x-coordinate of the halfway point of the circle is: {halfway_x}")
 
 # Function to play collision sound on an available channel
 def play_collision_sound():
@@ -143,11 +146,11 @@ def handle_boundary_collision(ball):
         ball.y -= overlap * ny
 
 def handle_collision(ball1, ball2):
-    global circle_thickness, visible_inner_radius, current_sound_index
+    global circle_thickness, current_sound_index
     # Calculate the distance between the balls
     dist = distance(ball1, ball2)
+
     if dist < 2 * ball1.radius:
-        visible_inner_radius = circle_radius - circle_thickness
         
         channel = play_collision_sound()
         if channel:
@@ -181,38 +184,41 @@ def handle_collision(ball1, ball2):
 
 def handle_static_ball_collision(ball, static_ball):
     global current_sound_index
+    # Calculate the distance between the ball and the static ball
     dist = distance(ball, static_ball)
     if dist < ball.radius + static_ball.radius:
+        
         channel = play_collision_sound()
         if channel:
             channel.play(collision_sounds[current_sound_index])
         current_sound_index = (current_sound_index + 1) % len(collision_sounds)
 
+        # Normal vector at the point of collision
         nx = (ball.x - static_ball.x) / dist
         ny = (ball.y - static_ball.y) / dist
 
+        # Reflect the velocity vector
         dot_product = ball.vx * nx + ball.vy * ny
         ball.vx -= 2 * dot_product * nx
         ball.vy -= 2 * dot_product * ny
 
+        # Apply restitution for bounciness
         ball.vx *= restitution
         ball.vy *= restitution
 
+        # Reposition the ball to avoid sticking
         overlap = ball.radius + static_ball.radius - dist
         ball.x += overlap * nx
         ball.y += overlap * ny
 
 def update_trails():
+    # Add the current position and radius to the trail for each ball
     for ball in balls:
         ball.trail.append((ball.x, ball.y, ball.radius))
-        # Limit the length of the trail for performance and visual reasons
-        if len(ball.trail) > 500:
-            ball.trail.pop(0)
 
 # Main game loop
 running = True
 paused = True  # Start the simulation paused
-start_time = pygame.time.get_ticks()  # Track the start time
 while running:
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
@@ -220,6 +226,10 @@ while running:
         elif event.type == pygame.KEYDOWN:
             if event.key == pygame.K_SPACE:
                 paused = not paused
+                start_time = pygame.time.get_ticks()  # Track the start time
+            elif event.key == pygame.K_r:
+                pygame.quit()
+                sys.exit()
 
     if not paused:
         update_trails()
@@ -243,7 +253,7 @@ while running:
 
         # Add new static balls every 3 seconds
         elapsed_time = pygame.time.get_ticks() - start_time
-        if elapsed_time > 3000:
+        if elapsed_time >= 2930:
             new_static_balls = []
             for ball in balls:
                 new_static_balls.append(Ball(ball.x, ball.y, 0, 0, black, ball.radius))
@@ -274,13 +284,13 @@ while running:
     # Draw the balls with outlines
     for ball in balls:
         # Draw the outline
-        pygame.draw.circle(screen, white, (int(ball.x), int(ball.y)), ball.radius + 2)
+        pygame.draw.circle(screen, white, (int(ball.x), int(ball.y)), ball.radius + 1)
         # Draw the filled ball
         pygame.draw.circle(screen, ball.color, (int(ball.x), int(ball.y)), ball.radius)
 
     # Draw static black balls with white outlines
     for static_ball in static_balls:
-        pygame.draw.circle(screen, white, (int(static_ball.x), (int(static_ball.y))), static_ball.radius + 2)
+        pygame.draw.circle(screen, white, (int(static_ball.x), (int(static_ball.y))), static_ball.radius + 1)
         pygame.draw.circle(screen, static_ball.color, (int(static_ball.x), (int(static_ball.y))), static_ball.radius)
 
     # Draw the large circle in the middle first with outline
@@ -288,6 +298,8 @@ while running:
 
     # Update the display
     pygame.display.flip()
+
+    
 
     # Cap the frame rate
     clock.tick(fps)
