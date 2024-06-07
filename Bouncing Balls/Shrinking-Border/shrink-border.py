@@ -48,7 +48,7 @@ pygame.mixer.set_num_channels(num_channels)
 # Screen dimensions
 width, height = 1080, 1920
 screen = pygame.display.set_mode((width, height), pygame.HWSURFACE | pygame.DOUBLEBUF)
-pygame.display.set_caption("Balls Reset After 3 Seconds, With Collision")
+pygame.display.set_caption("Ball Gets Bigger With Every Bounce")
 
 # Colors
 white = (255, 255, 255)
@@ -61,12 +61,11 @@ circle_thickness = 7
 visible_inner_radius = circle_radius - circle_thickness
 
 # Initial positions for the balls
-initial_positions = [(480.0, 795.0), (600.0, 795.0)]
-initial_radius = 30
-initial_velocities = [(0, 0), (0, 0)]  # Example initial velocities
+initial_positions = [(800.0, 900.0), (600.0, 795.0)]
+initial_radius = 40
+initial_velocities = [(0, -10), (0, 0)]  # Example initial velocities
 ball1 = Ball(initial_positions[0][0], initial_positions[0][1], initial_velocities[0][0], initial_velocities[0][1], black, initial_radius)
-ball2 = Ball(initial_positions[1][0], initial_positions[1][1], initial_velocities[1][0], initial_velocities[1][1], black, initial_radius)
-balls = [ball1, ball2]
+balls = [ball1]
 static_balls = []  # Store static balls in a separate list
 
 # Gravity properties
@@ -77,7 +76,7 @@ restitution = 1.0  # Bounciness factor
 current_dir = os.path.dirname(os.path.abspath(__file__))
 main_dir = os.path.abspath(os.path.join(current_dir, os.pardir, os.pardir))
 audio_dir = os.path.join(main_dir, "Audios")
-audio_file = "pop.wav"
+audio_file = "piano.wav"
 audio_path = os.path.join(audio_dir, audio_file)
 original_sound = AudioSegment.from_file(audio_path)
 
@@ -96,7 +95,7 @@ original_sound = AudioSegment.from_file(audio_path)
 # adjusted_audio.export(output_file_path, format=output_format, bitrate=bitrate, parameters=["-ac", str(channels), "-sample_fmt", f's{8*sample_width}'])
 
 # Prepare a list of pygame sounds with different pitches
-pitch_semitones = [0, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 22, 18, 16, 14, 12, 10, 8, 6, 4, 2]
+pitch_semitones = [12,11,11,11,11,11,11,10,10,11,11,16,15,13,12,11,11,11,11,11,11,9,9,8,8,16,15,13]
 collision_sounds = [pydub_to_pygame(change_pitch(original_sound, semitone)) for semitone in pitch_semitones]
 current_sound_index = 0
 
@@ -144,43 +143,6 @@ def handle_boundary_collision(ball):
         overlap = dist + ball.radius - visible_inner_radius
         ball.x -= overlap * nx
         ball.y -= overlap * ny
-
-def handle_collision(ball1, ball2):
-    global circle_thickness, current_sound_index
-    # Calculate the distance between the balls
-    dist = distance(ball1, ball2)
-
-    if dist < 2 * ball1.radius:
-        
-        channel = play_collision_sound()
-        if channel:
-            channel.play(collision_sounds[current_sound_index])
-        current_sound_index = (current_sound_index + 1) % len(collision_sounds)
-
-        # Calculate the normal and tangent vectors
-        nx = (ball2.x - ball1.x) / dist
-        ny = (ball2.y - ball1.y) / dist
-        tx = -ny
-        ty = nx
-
-        # Dot products of velocities with the normal and tangent vectors
-        v1n = nx * ball1.vx + ny * ball1.vy
-        v1t = tx * ball1.vx + ty * ball1.vy
-        v2n = nx * ball2.vx + ny * ball2.vy
-        v2t = tx * ball2.vx + ty * ball2.vy
-
-        # Swap the normal components of the velocities (elastic collision)
-        ball1.vx = v2n * nx + v1t * tx
-        ball1.vy = v2n * ny + v1t * ty
-        ball2.vx = v1n * nx + v2t * tx
-        ball2.vy = v1n * ny + v2t * ty
-
-        # Separate the balls to prevent sticking
-        overlap = 2 * ball1.radius - dist
-        ball1.x -= overlap / 2 * nx
-        ball1.y -= overlap / 2 * ny
-        ball2.x += overlap / 2 * nx
-        ball2.y += overlap / 2 * ny
 
 def handle_static_ball_collision(ball, static_ball):
     global current_sound_index
@@ -239,11 +201,6 @@ while running:
             ball.x += ball.vx
             ball.y += ball.vy
 
-            # Handle collision with other balls
-            for other_ball in balls:
-                if ball != other_ball:
-                    handle_collision(ball, other_ball)
-
             # Handle collision with static balls
             for static_ball in static_balls:
                 handle_static_ball_collision(ball, static_ball)
@@ -253,21 +210,18 @@ while running:
 
         # Add new static balls every 3 seconds
         elapsed_time = pygame.time.get_ticks() - start_time
-        if elapsed_time >= 2930:
+        if elapsed_time >= 3000:
             new_static_balls = []
             for ball in balls:
                 new_static_balls.append(Ball(ball.x, ball.y, 0, 0, black, ball.radius))
             static_balls.extend(new_static_balls)
 
-            # Reset original balls to their initial positions with initial velocities
+            # Reset original ball to their initial positions with initial velocities
             ball1.x, ball1.y = initial_positions[0]
             ball1.vx, ball1.vy = initial_velocities[0]
-            ball2.x, ball2.y = initial_positions[1]
-            ball2.vx, ball2.vy = initial_velocities[1]
 
             # Clear trails
             ball1.trail.clear()
-            ball2.trail.clear()
 
             start_time = pygame.time.get_ticks()  # Reset the timer
 

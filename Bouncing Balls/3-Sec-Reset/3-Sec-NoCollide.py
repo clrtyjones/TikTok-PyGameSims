@@ -1,11 +1,12 @@
 import pygame
 import sys
 import math
-import random
 import os
 from pydub import AudioSegment
 from pydub.playback import play
-import io
+from pydub.generators import Sine
+import simpleaudio as sa
+import time
 
 os.environ["SDL_VIDEODRIVER"] = "dummy"  # Use dummy driver to prevent SDL from loading default drivers
 os.environ["SDL_VIDEO_CENTERED"] = "1"   # Center the window
@@ -48,7 +49,7 @@ pygame.mixer.set_num_channels(num_channels)
 # Screen dimensions
 width, height = 1080, 1920
 screen = pygame.display.set_mode((width, height), pygame.HWSURFACE | pygame.DOUBLEBUF)
-pygame.display.set_caption("Balls Reset After 3 Seconds, With Collision")
+pygame.display.set_caption("Balls Reset Every 3 Seconds, No Collision")
 
 # Colors
 white = (255, 255, 255)
@@ -61,9 +62,9 @@ circle_thickness = 7
 visible_inner_radius = circle_radius - circle_thickness
 
 # Initial positions for the balls
-initial_positions = [(480.0, 795.0), (600.0, 795.0)]
-initial_radius = 30
-initial_velocities = [(0, 0), (0, 0)]  # Example initial velocities
+initial_positions = [(440.0, 650.0), (640.0, 650.0)]
+initial_radius = 35
+initial_velocities = [(10, -5), (-10, -5)]  # Example initial velocities
 ball1 = Ball(initial_positions[0][0], initial_positions[0][1], initial_velocities[0][0], initial_velocities[0][1], black, initial_radius)
 ball2 = Ball(initial_positions[1][0], initial_positions[1][1], initial_velocities[1][0], initial_velocities[1][1], black, initial_radius)
 balls = [ball1, ball2]
@@ -77,26 +78,12 @@ restitution = 1.0  # Bounciness factor
 current_dir = os.path.dirname(os.path.abspath(__file__))
 main_dir = os.path.abspath(os.path.join(current_dir, os.pardir, os.pardir))
 audio_dir = os.path.join(main_dir, "Audios")
-audio_file = "pop.wav"
+audio_file = "boom.wav"
 audio_path = os.path.join(audio_dir, audio_file)
 original_sound = AudioSegment.from_file(audio_path)
 
-# # Define export parameters
-# output_format = "wav"  # Specify the desired output format, e.g., "mp3", "wav", etc.
-# output_file_path = "output_audio." + output_format
-# bitrate = "128k"  # Specify the desired bitrate, e.g., "64k", "128k", "192k", etc.
-# sample_width = 2  # Specify the desired sample width in bytes, e.g., 1 (8-bit), 2 (16-bit), etc.
-# channels = 2  # Specify the desired number of channels, e.g., 1 (mono), 2 (stereo), etc.
-# target_db = -5  # Specify the desired target decibel level
-
-# # Apply gain to adjust the volume level
-# adjusted_audio = original_sound.apply_gain(target_db)
-
-# # Export the audio with custom parameters
-# adjusted_audio.export(output_file_path, format=output_format, bitrate=bitrate, parameters=["-ac", str(channels), "-sample_fmt", f's{8*sample_width}'])
-
 # Prepare a list of pygame sounds with different pitches
-pitch_semitones = [0, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 22, 18, 16, 14, 12, 10, 8, 6, 4, 2]
+pitch_semitones = [0, 1 ,2 ,3 ,4 ,5, 6]
 collision_sounds = [pydub_to_pygame(change_pitch(original_sound, semitone)) for semitone in pitch_semitones]
 current_sound_index = 0
 
@@ -104,6 +91,9 @@ current_sound_index = 0
 clock = pygame.time.Clock()
 fps = 60
 start_time = 0  # Initialize start time
+
+# Initialize font
+font = pygame.font.SysFont(None, 36)
 
 # Function to play collision sound on an available channel
 def play_collision_sound():
@@ -145,43 +135,6 @@ def handle_boundary_collision(ball):
         ball.x -= overlap * nx
         ball.y -= overlap * ny
 
-def handle_collision(ball1, ball2):
-    global circle_thickness, current_sound_index
-    # Calculate the distance between the balls
-    dist = distance(ball1, ball2)
-
-    if dist < 2 * ball1.radius:
-        
-        channel = play_collision_sound()
-        if channel:
-            channel.play(collision_sounds[current_sound_index])
-        current_sound_index = (current_sound_index + 1) % len(collision_sounds)
-
-        # Calculate the normal and tangent vectors
-        nx = (ball2.x - ball1.x) / dist
-        ny = (ball2.y - ball1.y) / dist
-        tx = -ny
-        ty = nx
-
-        # Dot products of velocities with the normal and tangent vectors
-        v1n = nx * ball1.vx + ny * ball1.vy
-        v1t = tx * ball1.vx + ty * ball1.vy
-        v2n = nx * ball2.vx + ny * ball2.vy
-        v2t = tx * ball2.vx + ty * ball2.vy
-
-        # Swap the normal components of the velocities (elastic collision)
-        ball1.vx = v2n * nx + v1t * tx
-        ball1.vy = v2n * ny + v1t * ty
-        ball2.vx = v1n * nx + v2t * tx
-        ball2.vy = v1n * ny + v2t * ty
-
-        # Separate the balls to prevent sticking
-        overlap = 2 * ball1.radius - dist
-        ball1.x -= overlap / 2 * nx
-        ball1.y -= overlap / 2 * ny
-        ball2.x += overlap / 2 * nx
-        ball2.y += overlap / 2 * ny
-
 def handle_static_ball_collision(ball, static_ball):
     global current_sound_index
     # Calculate the distance between the ball and the static ball
@@ -216,9 +169,18 @@ def update_trails():
     for ball in balls:
         ball.trail.append((ball.x, ball.y, ball.radius))
 
+# Function to generate rainbow colors
+def rainbow_color(time, offset=0):
+    frequency = 0.6
+    r = int(math.sin(frequency * time + 0 + offset) * 127 + 128)
+    g = int(math.sin(frequency * time + 2 + offset) * 127 + 128)
+    b = int(math.sin(frequency * time + 4 + offset) * 127 + 128)
+    return (r, g, b)
+
 # Main game loop
 running = True
 paused = True  # Start the simulation paused
+countdown = 3  # Initialize countdown
 while running:
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
@@ -239,11 +201,6 @@ while running:
             ball.x += ball.vx
             ball.y += ball.vy
 
-            # Handle collision with other balls
-            for other_ball in balls:
-                if ball != other_ball:
-                    handle_collision(ball, other_ball)
-
             # Handle collision with static balls
             for static_ball in static_balls:
                 handle_static_ball_collision(ball, static_ball)
@@ -251,9 +208,13 @@ while running:
             # Handle collision with outer circle
             handle_boundary_collision(ball)
 
-        # Add new static balls every 3 seconds
+        # Calculate countdown
         elapsed_time = pygame.time.get_ticks() - start_time
-        if elapsed_time >= 2930:
+        countdown = 3 - (elapsed_time // 1000)
+        
+        # Add new static balls every 3 seconds
+        if elapsed_time >= 3000:
+            current_sound_index = 0
             new_static_balls = []
             for ball in balls:
                 new_static_balls.append(Ball(ball.x, ball.y, 0, 0, black, ball.radius))
@@ -275,18 +236,25 @@ while running:
     screen.fill(black)
 
     # Draw the balls' trails
+    time = pygame.time.get_ticks() / 1000  # Get the current time in seconds
     for ball in balls:
-        for pos in ball.trail:
-            # Draw the trail with a white outline
-            pygame.draw.circle(screen, white, (int(pos[0]), int(pos[1])), pos[2] + 2)
-            pygame.draw.circle(screen, ball.color, (int(pos[0]), int(pos[1])), pos[2])
+        for i, pos in enumerate(ball.trail):
+            trail_color = rainbow_color(time, offset=i * 0.1)  # Get the rainbow color with an offset
+            pygame.draw.circle(screen, black, (int(pos[0]), int(pos[1])), pos[2] + 2)
+            pygame.draw.circle(screen, trail_color, (int(pos[0]), int(pos[1])), pos[2])
 
     # Draw the balls with outlines
     for ball in balls:
+        ball_color = rainbow_color(time)
         # Draw the outline
-        pygame.draw.circle(screen, white, (int(ball.x), int(ball.y)), ball.radius + 1)
+        pygame.draw.circle(screen, black, (int(ball.x), int(ball.y)), ball.radius + 1)
         # Draw the filled ball
-        pygame.draw.circle(screen, ball.color, (int(ball.x), int(ball.y)), ball.radius)
+        pygame.draw.circle(screen, ball_color, (int(ball.x), int(ball.y)), ball.radius)
+
+        # Render and draw countdown text
+        countdown_text = font.render(str(countdown), True, white)
+        text_rect = countdown_text.get_rect(center=(ball.x, ball.y))
+        screen.blit(countdown_text, text_rect)
 
     # Draw static black balls with white outlines
     for static_ball in static_balls:
@@ -298,8 +266,6 @@ while running:
 
     # Update the display
     pygame.display.flip()
-
-    
 
     # Cap the frame rate
     clock.tick(fps)
