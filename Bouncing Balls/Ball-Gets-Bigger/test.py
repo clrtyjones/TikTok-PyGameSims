@@ -3,6 +3,7 @@ import sys
 import math
 import random
 import os
+from pydub import AudioSegment
 
 # Ball Class
 class Ball:
@@ -44,9 +45,11 @@ restitution = 1.0  # Bounciness factor
 
 # Load sound
 current_dir = os.path.dirname(os.path.abspath(__file__))
-audio_file = "kalimba.wav"
-audio_path = os.path.join(current_dir, audio_file)
-collision_sound = pygame.mixer.Sound(audio_path)
+main_dir = os.path.abspath(os.path.join(current_dir, os.pardir, os.pardir))
+audio_dir = os.path.join(main_dir, "Audios")
+audio_file = "boom.wav"
+audio_path = os.path.join(audio_dir, audio_file)
+original_sound = AudioSegment.from_file(audio_path)
 
 # Time properties
 clock = pygame.time.Clock()
