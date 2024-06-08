@@ -45,9 +45,9 @@ chevron_height = chevron_width // 2
 chevron_cutoff = 100  # Width of the cut-off at the tip
 
 # Initial positions for the balls
-initial_positions = [(width // 2, 100)]
+initial_positions = [(540, 800)]
 initial_radius = 35
-initial_velocities = [(10, -5)]  # Example initial velocities
+initial_velocities = [(0, 0)]  # Example initial velocities
 ball1 = Ball(initial_positions[0][0], initial_positions[0][1], initial_velocities[0][0], initial_velocities[0][1], white, initial_radius)
 balls = [ball1]
 
@@ -94,6 +94,18 @@ def play_collision_sound():
             return pygame.mixer.Channel(i)
     return None
 
+def hsv_to_rgb(h, s, v):
+    """Convert HSV to RGB color space."""
+    rgb = colorsys.hsv_to_rgb(h, s, v)
+    return (int(rgb[0] * 255), int(rgb[1] * 255), int(rgb[2] * 255))
+
+def update_trails():
+    for ball in balls:
+        ball.trail.append((ball.x, ball.y, ball.color, ball.radius))
+        # Limit the length of the trail for performance and visual reasons
+        if len(ball.trail) > 25:
+            ball.trail.pop(0)
+
 # Simplified game loop
 running = True
 paused = True  # Start the simulation paused
@@ -106,8 +118,12 @@ while running:
                 paused = not paused
 
     if not paused:
+        update_trails()
         for ball in balls:
-            ball.vy += gravity  # Apply gravity to vertical velocity
+            # Apply gravity
+            ball.vy += gravity
+
+            # Update position
             ball.x += ball.vx
             ball.y += ball.vy
 
@@ -115,17 +131,72 @@ while running:
             ball.hue = (ball.hue + 2) % 360
             ball.color = hsv_to_rgb(ball.hue / 360, 1.0, 1.0)
 
+            # Handle collision with outer circle
+            #handle_boundary_collision(ball)
+
     # Fill the screen with black
     screen.fill(black)
 
-    # Draw the chevron
-    chevron_points = [
-        ((width // 2) - (chevron_width // 2), chevron_top_y),
-        ((width // 2) + (chevron_width // 2), chevron_top_y),
-        ((width // 2) + (chevron_width // 2) - chevron_cutoff // 2, chevron_top_y + chevron_height),
-        ((width // 2) - (chevron_width // 2) + chevron_cutoff // 2, chevron_top_y + chevron_height)
+     # Draw the balls' trails with outlines
+    for ball in balls:
+        for i, pos in enumerate(ball.trail):
+            fade_power = 5.5  # Adjust the power to control the rate of fade away
+            alpha = int(255 * ((i / len(ball.trail)) ** fade_power))
+            trail_color = (*pos[2], alpha)
+            # Draw the outline for the trail
+            trail_surface = pygame.Surface((pos[3]*2+4, pos[3]*2+4), pygame.SRCALPHA)
+            pygame.draw.circle(trail_surface, (0, 0, 0, alpha), (pos[3]+2, pos[3]+2), pos[3] + 2)
+            # Draw the filled trail ball
+            pygame.draw.circle(trail_surface, trail_color, (pos[3]+2, pos[3]+2), pos[3])
+            screen.blit(trail_surface, (int(pos[0] - pos[3] - 2), int(pos[1] - pos[3] - 2)))
+
+    # Draw the chevron using two polygons
+    chevron_tip_x = width // 2
+    chevron_tip_y = chevron_top_y + chevron_height
+    chevron_bottom_y = chevron_tip_y + chevron_height
+
+
+#---------------------------
+#     TL
+#        #
+#        ##
+#        ###
+#        ####
+#     BL  ####
+#          ####
+#           ####  TR
+#            ####
+#             ###
+#              ##
+#               #
+#                 BR
+#---------------------------
+
+
+    left_rhombus = [
+        # Top Right 
+        (490, 900),
+        # Top Left
+        (100, 500),
+        # Bottom Left
+        (100, 550),
+        # Bottom Right
+        (490, 950)
     ]
-    pygame.draw.polygon(screen, white, chevron_points)
+
+    right_rhombus = [
+        # Top Right 
+        (980, 500),
+        # Top Left
+        (590, 900),
+        # Bottom Left
+        (590, 950),
+        # Bottom Right
+        (980, 550)
+    ]
+
+    pygame.draw.polygon(screen, white, left_rhombus)
+    pygame.draw.polygon(screen, white, right_rhombus)
 
     # Draw the balls
     for ball in balls:
@@ -138,5 +209,5 @@ while running:
     clock.tick(fps)
 
 # Quit Pygame
-pygame.quit()
+pygame.quit()#
 sys.exit()
