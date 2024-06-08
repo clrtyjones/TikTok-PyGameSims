@@ -45,18 +45,43 @@ initial_velocities = [(0, 0)]  # Example initial velocities
 ball1 = Ball(initial_positions[0][0], initial_positions[0][1], initial_velocities[0][0], initial_velocities[0][1], white, initial_radius)
 balls = [ball1]
 
+
+#---------------------------
+#     TL
+#        #
+#        ##
+#        ###
+#        ####
+#     BL  ####
+#          ####
+#           ####  TR
+#            ####
+#             ###
+#              ##
+#               #
+#                 BR
+#---------------------------
+
 # Funnel Wall Properties
 left_rhombus = [
+    # Top Right 
     (490, 900),
+    # Top Left
     (100, 500),
+    # Bottom Left
     (100, 550),
+    # Bottom Right
     (490, 950)
 ]
 
 right_rhombus = [
+    # Top Right 
     (980, 500),
+    # Top Left
     (590, 900),
+    # Bottom Left
     (590, 950),
+    # Bottom Right
     (980, 550)
 ]
 
