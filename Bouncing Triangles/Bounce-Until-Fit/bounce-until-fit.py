@@ -38,22 +38,31 @@ pygame.display.set_caption("Ball Bouncing Over Chevron")
 white = (255, 255, 255)
 black = (0, 0, 0)
 
-# Chevron properties
-chevron_top_y = height // 3
-chevron_width = width // 2
-chevron_height = chevron_width // 2
-chevron_cutoff = 100  # Width of the cut-off at the tip
-
 # Initial positions for the balls
-initial_positions = [(540, 800)]
+initial_positions = [(840, 500)]
 initial_radius = 35
 initial_velocities = [(0, 0)]  # Example initial velocities
 ball1 = Ball(initial_positions[0][0], initial_positions[0][1], initial_velocities[0][0], initial_velocities[0][1], white, initial_radius)
 balls = [ball1]
 
+# Funnel Wall Properties
+left_rhombus = [
+    (490, 900),
+    (100, 500),
+    (100, 550),
+    (490, 950)
+]
+
+right_rhombus = [
+    (980, 500),
+    (590, 900),
+    (590, 950),
+    (980, 550)
+]
+
 # Gravity properties
 gravity = 0.5  # Acceleration due to gravity
-restitution = 0.9  # Bounciness factor
+restitution = 1.0  # Bounciness factor
 
 # Load sound
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -106,6 +115,48 @@ def update_trails():
         if len(ball.trail) > 25:
             ball.trail.pop(0)
 
+# Function to handle collision between ball and polygon
+def handle_collision(ball, polygon):
+    for i in range(len(polygon)):
+        p1 = polygon[i]
+        p2 = polygon[(i + 1) % len(polygon)]
+        # Check if ball intersects with the edge p1-p2
+        if point_line_distance(ball, p1, p2) <= ball.radius:
+            # Calculate normal vector of the edge
+            edge_vector = (p2[0] - p1[0], p2[1] - p1[1])
+            edge_length = math.sqrt(edge_vector[0]**2 + edge_vector[1]**2)
+            normal_vector = (-edge_vector[1] / edge_length, edge_vector[0] / edge_length)
+            # Reflect ball velocity
+            dot_product = ball.vx * normal_vector[0] + ball.vy * normal_vector[1]
+            ball.vx -= 2 * dot_product * normal_vector[0]
+            ball.vy -= 2 * dot_product * normal_vector[1]
+            # Apply restitution
+            ball.vx *= restitution
+            ball.vy *= restitution
+            # Correct ball position to avoid sticking
+            overlap = ball.radius - point_line_distance(ball, p1, p2)
+            ball.x += normal_vector[0] * overlap
+            ball.y += normal_vector[1] * overlap
+            # Play collision sound
+            channel = play_collision_sound()
+            if channel:
+                global current_sound_index
+                channel.play(collision_sounds[current_sound_index])
+                current_sound_index = (current_sound_index + 1) % len(collision_sounds)
+            break
+
+def point_line_distance(ball, p1, p2):
+    """Calculate the distance from the ball center to the line segment p1-p2."""
+    px, py = ball.x, ball.y
+    x1, y1 = p1
+    x2, y2 = p2
+    line_length = math.sqrt((x2 - x1)**2 + (y2 - y1)**2)
+    if line_length == 0:
+        return math.sqrt((px - x1)**2 + (py - y1)**2)
+    t = max(0, min(1, ((px - x1) * (x2 - x1) + (py - y1) * (y2 - y1)) / line_length**2))
+    projection = (x1 + t * (x2 - x1), y1 + t * (y2 - y1))
+    return math.sqrt((px - projection[0])**2 + (py - projection[1])**2)
+
 # Simplified game loop
 running = True
 paused = True  # Start the simulation paused
@@ -131,13 +182,14 @@ while running:
             ball.hue = (ball.hue + 2) % 360
             ball.color = hsv_to_rgb(ball.hue / 360, 1.0, 1.0)
 
-            # Handle collision with outer circle
-            #handle_boundary_collision(ball)
+            # Handle collision with polygons
+            handle_collision(ball, left_rhombus)
+            handle_collision(ball, right_rhombus)
 
     # Fill the screen with black
     screen.fill(black)
 
-     # Draw the balls' trails with outlines
+    # Draw the balls' trails with outlines
     for ball in balls:
         for i, pos in enumerate(ball.trail):
             fade_power = 5.5  # Adjust the power to control the rate of fade away
@@ -150,51 +202,7 @@ while running:
             pygame.draw.circle(trail_surface, trail_color, (pos[3]+2, pos[3]+2), pos[3])
             screen.blit(trail_surface, (int(pos[0] - pos[3] - 2), int(pos[1] - pos[3] - 2)))
 
-    # Draw the chevron using two polygons
-    chevron_tip_x = width // 2
-    chevron_tip_y = chevron_top_y + chevron_height
-    chevron_bottom_y = chevron_tip_y + chevron_height
-
-
-#---------------------------
-#     TL
-#        #
-#        ##
-#        ###
-#        ####
-#     BL  ####
-#          ####
-#           ####  TR
-#            ####
-#             ###
-#              ##
-#               #
-#                 BR
-#---------------------------
-
-
-    left_rhombus = [
-        # Top Right 
-        (490, 900),
-        # Top Left
-        (100, 500),
-        # Bottom Left
-        (100, 550),
-        # Bottom Right
-        (490, 950)
-    ]
-
-    right_rhombus = [
-        # Top Right 
-        (980, 500),
-        # Top Left
-        (590, 900),
-        # Bottom Left
-        (590, 950),
-        # Bottom Right
-        (980, 550)
-    ]
-
+    # Draw the polygons
     pygame.draw.polygon(screen, white, left_rhombus)
     pygame.draw.polygon(screen, white, right_rhombus)
 
@@ -209,5 +217,5 @@ while running:
     clock.tick(fps)
 
 # Quit Pygame
-pygame.quit()#
+pygame.quit()
 sys.exit()
