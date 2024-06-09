@@ -39,9 +39,9 @@ white = (255, 255, 255)
 black = (0, 0, 0)
 
 # Initial positions for the balls
-initial_positions = [(840, 500)]
-initial_radius = 35
-initial_velocities = [(0, 0)]  # Example initial velocities
+initial_positions = [(940, 500)]
+initial_radius = 75
+initial_velocities = [(-10, -10)]  # Example initial velocities
 ball1 = Ball(initial_positions[0][0], initial_positions[0][1], initial_velocities[0][0], initial_velocities[0][1], white, initial_radius)
 balls = [ball1]
 
@@ -62,32 +62,32 @@ balls = [ball1]
 #                 BR
 #---------------------------
 
-# Funnel Wall Properties
 left_rhombus = [
     # Top Right 
-    (490, 900),
+    (500, 1150),
     # Top Left
-    (100, 500),
+    (-50, 700),
     # Bottom Left
-    (100, 550),
+    (-50, 750),
     # Bottom Right
-    (490, 950)
+    (500, 1200)
 ]
 
 right_rhombus = [
     # Top Right 
-    (980, 500),
+    (1130, 700),
     # Top Left
-    (590, 900),
+    (580, 1150),
     # Bottom Left
-    (590, 950),
+    (580, 1200),
     # Bottom Right
-    (980, 550)
+    (1130, 750)
 ]
 
+
 # Gravity properties
-gravity = 0.5  # Acceleration due to gravity
-restitution = 1.0  # Bounciness factor
+gravity = 0.4  # Acceleration due to gravity
+restitution = 0.95  # Bounciness factor
 
 # Load sound
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -140,6 +140,19 @@ def update_trails():
         if len(ball.trail) > 25:
             ball.trail.pop(0)
 
+# Function to handle collision with window walls
+def handle_wall_collision(ball):
+    # Left wall
+    if ball.x - ball.radius <= 0:
+        ball.vx = abs(ball.vx)  # Change the direction of velocity
+        ball.x = ball.radius  # Move the ball inside the window
+        ball.radius -= 1
+    # Right wall
+    elif ball.x + ball.radius >= width:
+        ball.vx = -abs(ball.vx)  # Change the direction of velocity
+        ball.x = width - ball.radius  # Move the ball inside the window
+        ball.radius -= 1
+
 # Function to handle collision between ball and polygon
 def handle_collision(ball, polygon):
     for i in range(len(polygon)):
@@ -147,6 +160,10 @@ def handle_collision(ball, polygon):
         p2 = polygon[(i + 1) % len(polygon)]
         # Check if ball intersects with the edge p1-p2
         if point_line_distance(ball, p1, p2) <= ball.radius:
+
+            # Update Ball Size -1
+            ball.radius -= 1
+
             # Calculate normal vector of the edge
             edge_vector = (p2[0] - p1[0], p2[1] - p1[1])
             edge_length = math.sqrt(edge_vector[0]**2 + edge_vector[1]**2)
@@ -199,6 +216,13 @@ while running:
             # Apply gravity
             ball.vy += gravity
 
+            # Handle collision with window walls
+            handle_wall_collision(ball)
+
+            # Handle collision with polygons
+            handle_collision(ball, left_rhombus)
+            handle_collision(ball, right_rhombus)
+
             # Update position
             ball.x += ball.vx
             ball.y += ball.vy
@@ -206,10 +230,6 @@ while running:
             # Update hue and color for rainbow effect
             ball.hue = (ball.hue + 2) % 360
             ball.color = hsv_to_rgb(ball.hue / 360, 1.0, 1.0)
-
-            # Handle collision with polygons
-            handle_collision(ball, left_rhombus)
-            handle_collision(ball, right_rhombus)
 
     # Fill the screen with black
     screen.fill(black)
@@ -234,6 +254,15 @@ while running:
     # Draw the balls
     for ball in balls:
         pygame.draw.circle(screen, ball.color, (int(ball.x), int(ball.y)), ball.radius)
+
+    # Render text surface
+    text_surface = font.render("Ball Size: {}".format(ball1.radius), True, white)
+    # Get the rectangle of the text surface
+    text_rect = text_surface.get_rect()
+    # Position the text rectangle at the bottom center of the screen
+    text_rect.midbottom = (width // 2, (height // 2) + 400)
+    # Draw text surface onto the screen
+    screen.blit(text_surface, text_rect)
 
     # Update the display
     pygame.display.flip()
