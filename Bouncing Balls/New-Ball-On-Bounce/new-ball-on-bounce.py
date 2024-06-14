@@ -44,7 +44,7 @@ pygame.init()
 
 # Initialize mixer and allocate multiple channels
 pygame.mixer.init()
-num_channels = 75  # Adjust this based on the number of simultaneous sounds you expect
+num_channels = 200  # Adjust this based on the number of simultaneous sounds you expect
 pygame.mixer.set_num_channels(num_channels)
 
 # Screen dimensions
@@ -55,10 +55,11 @@ pygame.display.set_caption("Ball Gets Bigger With Every Bounce")
 # Colors
 white = (255, 255, 255)
 black = (0, 0, 0)
+blue = (255, 255, 0)
 
 # Ball properties
-initial_radius = 5
-ball1 = Ball(540, 700, 0.1, -8.38, white, initial_radius)
+initial_radius = 8
+ball1 = Ball(540, 960, -2, 2, blue, initial_radius)
 balls = [ball1]  # Store all balls in a list
 
 # Circle properties
@@ -68,19 +69,19 @@ circle_thickness = 7
 visible_inner_radius = circle_radius - circle_thickness
 
 # Gravity properties
-gravity = 0.7  # Acceleration due to gravity
-restitution = 1.005  # Bounciness factor
+gravity = 0  # Acceleration due to gravity
+restitution = 1.0  # Bounciness factor
 
 # Load sound
 current_dir = os.path.dirname(os.path.abspath(__file__))
 main_dir = os.path.abspath(os.path.join(current_dir, os.pardir, os.pardir))
 audio_dir = os.path.join(main_dir, "Audios")
-audio_file = "boowomp.mp3"
+audio_file = "synthB.wav"
 audio_path = os.path.join(audio_dir, audio_file)
 original_sound = AudioSegment.from_file(audio_path)
 
 # Prepare a list of pygame sounds with different pitches
-pitch_semitones = [0, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 20, 18, 16, 14, 12, 10, 8, 6, 4, 2]
+pitch_semitones = [-2, 0, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 20, 18, 16, 14, 12, 10, 8, 6, 4, 2, 0]
 collision_sounds = [pydub_to_pygame(change_pitch(original_sound, semitone)) for semitone in pitch_semitones]
 current_sound_index = 0
 
@@ -107,17 +108,6 @@ def handle_boundary_collision(ball):
             channel.play(collision_sounds[current_sound_index])
         current_sound_index = (current_sound_index + 1) % len(collision_sounds)
 
-        if ball.radius > 80:
-            ball.radius += 2
-        else:
-            ball.radius += 1
-
-        if ball.radius > 145:
-            restitution = 1.005
-            ball.radius += 2.75
-        elif ball.radius > 45:
-            ball.radius += 2
-
         # Normal vector at the point of collision
         nx = (ball.x - circle_center[0]) / dist
         ny = (ball.y - circle_center[1]) / dist
@@ -136,26 +126,32 @@ def handle_boundary_collision(ball):
         ball.x -= overlap * nx
         ball.y -= overlap * ny
 
+        # Spawn a new ball if there are less than 50000 balls
+        if len(balls) < 50000:
+            balls.append(spawn_new_ball())
+
 def hsv_to_rgb(h, s, v):
     """Convert HSV to RGB color space."""
     rgb = colorsys.hsv_to_rgb(h, s, v)
     return (int(rgb[0] * 255), int(rgb[1] * 255), int(rgb[2] * 255))
 
 def spawn_new_ball():
-    # Generate random coordinates within the circle
+    # Generate random coordinates within the middle area of the circle
     angle = random.uniform(0, math.pi * 2)
-    spawn_radius = random.uniform(0, visible_inner_radius - initial_radius)
+    min_radius = visible_inner_radius / 3
+    max_radius = visible_inner_radius / 2
+    spawn_radius = random.uniform(min_radius, max_radius)
     spawn_x = circle_center[0] + math.cos(angle) * spawn_radius
     spawn_y = circle_center[1] + math.sin(angle) * spawn_radius
 
     # Generate random velocities
-    vx = random.uniform(-5, 5)
-    vy = random.uniform(-20, -5)  # Ensure the ball moves upwards initially
+    vx = random.uniform(-2, 2)
+    vy = random.uniform(-2, 2)  # Ensure the ball moves upwards initially
 
     # Random color
     color = (random.randint(0, 255), random.randint(0, 255), random.randint(0, 255))
 
-    return Ball(spawn_x, spawn_y, vx, vy, color, initial_radius)
+    return Ball(540, 960, vx, vy, color, initial_radius)
 
 def update_trails():
     for ball in balls:
@@ -184,35 +180,28 @@ while running:
             ball.x += ball.vx
             ball.y += ball.vy
 
-            # Update hue and color for rainbow effect
-            ball.hue = (ball.hue + 2) % 360
-            ball.color = hsv_to_rgb(ball.hue / 360, 1.0, 1.0)
+            # # Update hue and color for rainbow effect
+            # ball.hue = (ball.hue + 2) % 360
+            # ball.color = hsv_to_rgb(ball.hue / 360, 1.0, 1.0)
 
             # Handle collision with outer circle
             handle_boundary_collision(ball)
-        
-        # Check for collision with outer circle and spawn new balls
-        if len(balls) < 2:
-            for ball in balls.copy():
-                dist = math.hypot(ball.x - circle_center[0], ball.y - circle_center[1])
-                if dist + ball.radius > visible_inner_radius:
-                    balls.append(spawn_new_ball())
 
     # Fill the screen with black
     screen.fill(black)
 
-    # Draw the balls' trails with outlines
-    for ball in balls:
-        for i, pos in enumerate(ball.trail):
-            fade_power = 5.5  # Adjust the power to control the rate of fade away
-            alpha = int(255 * ((i / len(ball.trail)) ** fade_power))
-            trail_color = (*pos[2], alpha)
-            # Draw the outline for the trail
-            trail_surface = pygame.Surface((pos[3]*2+4, pos[3]*2+4), pygame.SRCALPHA)
-            pygame.draw.circle(trail_surface, (0, 0, 0, alpha), (pos[3]+2, pos[3]+2), pos[3] + 2)
-            # Draw the filled trail ball
-            pygame.draw.circle(trail_surface, trail_color, (pos[3]+2, pos[3]+2), pos[3])
-            screen.blit(trail_surface, (int(pos[0] - pos[3] - 2), int(pos[1] - pos[3] - 2)))
+    # # Draw the balls' trails with outlines
+    # for ball in balls:
+    #     for i, pos in enumerate(ball.trail):
+    #         fade_power = 5.5  # Adjust the power to control the rate of fade away
+    #         alpha = int(255 * ((i / len(ball.trail)) ** fade_power))
+    #         trail_color = (*pos[2], alpha)
+    #         # Draw the outline for the trail
+    #         trail_surface = pygame.Surface((pos[3]*2+4, pos[3]*2+4), pygame.SRCALPHA)
+    #         pygame.draw.circle(trail_surface, (0, 0, 0, alpha), (pos[3]+2, pos[3]+2), pos[3] + 2)
+    #         # Draw the filled trail ball
+    #         pygame.draw.circle(trail_surface, trail_color, (pos[3]+2, pos[3]+2), pos[3])
+    #         screen.blit(trail_surface, (int(pos[0] - pos[3] - 2), int(pos[1] - pos[3] - 2)))
 
     # Draw the balls with outlines
     for ball in balls:
@@ -223,6 +212,8 @@ while running:
 
     # Draw the large circle in the middle first with outline
     pygame.draw.circle(screen, white, circle_center, circle_radius, circle_thickness)
+
+    pygame.draw.circle(screen, white, (540, 960), ball.radius)
 
     # Update the display
     pygame.display.flip()
